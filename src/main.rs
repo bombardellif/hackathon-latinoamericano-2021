@@ -51,8 +51,8 @@ fn main() {
         ("horas", &ActionCurrentTime{} as &dyn Action),
     ].into_iter()
      .collect();
-    
-    let fallback_rule: &dyn Action = 
+
+    let fallback_rule: &dyn Action =
         &UtterMessage{utterance_name: "default_fallback"};
 
     let stdin = io::stdin();
