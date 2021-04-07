@@ -5,12 +5,24 @@ use std::sync::{Arc, Mutex};
 
 use chrono::offset;
 
+mod interpolation;
+
 
 #[derive(Debug)]
-struct UserMessage {
+struct UserMessage<'a> {
     sender_id: String,
-    text: String,
+    text: &'a str,
     intent: String,
+}
+
+impl<'a> UserMessage<'a> {
+    fn new(input: &'a str) -> Self {
+        UserMessage {
+            sender_id: String::from("0"),
+            text: input,
+            intent: String::from(input),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -27,11 +39,10 @@ enum Event<'responses, 'slots> {
     SlotSet(&'slots str, Option<String>),
 }
 
-
 impl<'responses, 'slots> Action<'responses> {
     async fn run(
         &self,
-        user_message: &UserMessage,
+        user_message: &UserMessage<'_>,
     ) -> Vec<Event<'responses, 'slots>> {
         match self {
             Action::UtterMessage(tpl_name) => 
@@ -49,21 +60,11 @@ impl<'responses, 'slots> Action<'responses> {
                 vec![
                     Event::SlotSet(
                         "plain_text",
-                        Some(user_message.text.clone())),
+                        Some(user_message.text.to_string())),
                 ],
         }
     }
 }
-
-
-fn parse_input(input: &str) -> UserMessage {
-    UserMessage {
-        sender_id: String::from("0"),
-        text: String::from(input),
-        intent: String::from(input),
-    }
-}
-
 
 async fn process_messsage<'slots, 'responses>(
     responses: Arc<HashMap<&'responses str, &'responses str>>,
@@ -73,20 +74,24 @@ async fn process_messsage<'slots, 'responses>(
 ) {
     let fallback_rule = Action::UtterMessage("default_fallback");
 
-    let user_message = parse_input(input);
+    let user_message = UserMessage::new(input);
 
     let action = rules.get(&user_message.intent as &str)
         .unwrap_or(&fallback_rule);
 
     for event in action.run(&user_message).await {
         match event {
-            Event::BotUtteredTemplate(tpl_name) =>
-                println!("{}", responses.get(tpl_name).unwrap()),
+            Event::BotUtteredTemplate(tpl_name) => {
+                let response = responses.get(tpl_name).unwrap();
+                let text_respose = interpolation::inflate(
+                    response,
+                    &slots.lock().unwrap());
+                println!("{}", text_respose)
+            }
             Event::BotUtteredText(text) =>
                 println!("{}", text),
             Event::SlotSet(key, value) => {
                 slots.lock().unwrap().insert(key, value);
-                println!("{:?}", slots)
             },
         }
     }
@@ -96,7 +101,7 @@ async fn process_messsage<'slots, 'responses>(
 #[tokio::main]
 async fn main() {
     let responses: HashMap<_, _> = vec![
-        ("utter_hello", "Oi!"),
+        ("utter_hello", "Oi, {plain_text}!"),
         ("utter_bye", "Tchau!"),
         ("default_fallback", "Ops, não te entendi"),
     ].into_iter()
@@ -107,7 +112,7 @@ async fn main() {
         ("oi", Action::UtterMessage("utter_hello")),
         ("tchau", Action::UtterMessage("utter_bye")),
         ("horas", Action::CurrentTime),
-        ("texto livre", Action::PlainTextSlotSet),
+        ("text:", Action::PlainTextSlotSet),
     ].into_iter()
      .collect();
     let arc_rules = Arc::new(rules);
