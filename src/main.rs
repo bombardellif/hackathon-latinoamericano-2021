@@ -45,18 +45,18 @@ impl<'responses, 'slots> Action<'responses> {
         user_message: &UserMessage<'_>,
     ) -> Vec<Event<'responses, 'slots>> {
         match self {
-            Action::UtterMessage(tpl_name) => 
+            Action::UtterMessage(tpl_name) =>
                 vec![
                     Event::BotUtteredTemplate(tpl_name),
                 ],
-            Action::CurrentTime => 
+            Action::CurrentTime =>
                 vec![
                     Event::BotUtteredText(
                         offset::Local::now().time()
                             .format("%H:%M:%S")
                             .to_string()),
                 ],
-            Action::PlainTextSlotSet => 
+            Action::PlainTextSlotSet =>
                 vec![
                     Event::SlotSet(
                         "plain_text",
