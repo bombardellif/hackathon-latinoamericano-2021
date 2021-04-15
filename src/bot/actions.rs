@@ -9,11 +9,13 @@ pub enum Action<'a> {
     PlainTextSlotSet,
 }
 
+pub type SlotVal = Option<String>;
+
 impl<'responses, 'slots> Action<'responses> {
     pub async fn run(
         &self,
         user_message: &UserMessage<'_>,
-    ) -> Vec<Event<'responses, 'slots>> {
+    ) -> Vec<Event<'responses, 'slots, SlotVal>> {
         match self {
             Action::UtterMessage(tpl_name) =>
                 vec![
